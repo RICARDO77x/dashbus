@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "buses": {
+      "$busId": {
+        "location": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['lat','lon','clientTime'])"
+        }
+      }
+    }
+  }
+}
