@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashbus Pro - IoT Cloud Remote</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        html, body { width: 100%; height: 100%; background: #030712; color: #f9fafb; overflow: hidden; position: fixed; touch-action: none; }
+        .phone-frame { width: 100%; height: 100%; max-width: 480px; max-height: 100vh; margin: 0 auto; background: #090d16; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .app-header { background: rgba(9, 13, 22, 0.95); backdrop-filter: blur(12px); padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); z-index: 30; }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #030712; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+        .logo-text h1 { font-size: 17px; color: #ffffff; font-weight: 800; letter-spacing: -0.5px; }
+        .logo-text p { font-size: 10px; color: #6b7280; font-weight: 500; }
+        .role-badge { background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); color: #38bdf8; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .app-body { flex: 1; position: relative; width: 100%; display: flex; flex-direction: column; overflow: hidden; }
+        .tab-content { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; padding: 16px; z-index: 10; background: #090d16; touch-action: pan-y; }
+        .tab-content.active-tab { display: block; }
+        #map-container { position: absolute; top: 0; bottom: 0; left: 0; right: 0; width: 100%; height: 100%; z-index: 1; }
+        #map { width: 100%; height: 100%; touch-action: auto; }
+        
+        .floating-card { position: absolute; top: 15px; left: 15px; right: 15px; z-index: 10; background: rgba(17, 24, 39, 0.9); backdrop-filter: blur(16px); padding: 12px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5); }
+        .welcome-box { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .welcome-icon { font-size: 16px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .welcome-text h3 { font-size: 12px; color: #ffffff; font-weight: 700; }
+        .welcome-text p { font-size: 9px; color: #9ca3af; }
+        
+        .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+        .metric-box { background: rgba(31, 41, 55, 0.6); padding: 6px 8px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .metric-box span { font-size: 9px; color: #9ca3af; font-weight: 600; display: block; }
+        .metric-box strong { font-size: 11px; color: #38bdf8; margin-top: 2px; display: block; font-weight: 800; }
+
+        .btn-centrar-camion {
+            position: absolute;
+            bottom: 25px;
+            right: 15px;
+            z-index: 20;
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-capa-mapa {
+            position: absolute;
+            bottom: 75px;
+            right: 15px;
+            z-index: 20;
+            background: rgba(31, 41, 55, 0.95);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 14px;
+            border-radius: 30px;
+            font-size: 11px;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+        }
+
+        .driver-panel { position: absolute; bottom: 15px; left: 15px; right: 15px; z-index: 20; background: rgba(17, 24, 39, 0.92); backdrop-filter: blur(16px); padding: 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); display: none; box-shadow: 0 20px 30px rgba(0, 0, 0, 0.6); }
+        .btn-action { width: 100%; padding: 10px; border-radius: 12px; font-weight: 700; border: none; cursor: pointer; margin-top: 6px; font-size: 11px; transition: transform 0.1s ease; }
+        .btn-action:active { transform: scale(0.98); }
+        .btn-start { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
+        .btn-pause { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3); }
+        .btn-config-toggle { background: rgba(55, 65, 81, 0.8); color: #d1d5db; font-size: 10px; padding: 6px; margin-top: 6px; }
+        .config-drawer { background: rgba(31, 41, 55, 0.95); padding: 10px; border-radius: 10px; margin-top: 6px; display: none; }
+        
+        textarea, input { width: 100%; padding: 8px; background: #0b0f19; color: white; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; margin-top: 4px; font-size: 11px; }
+        .aviso-card { background: #1e293b; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); }
+        .aviso-card h4 { font-size: 13px; color: #f59e0b; margin-bottom: 4px; }
+        .aviso-card p { font-size: 11px; color: #cbd5e1; }
+        .aviso-card span { font-size: 9px; color: #64748b; display: block; margin-top: 4px; }
+        
+        .parada-item { background: #1e293b; padding: 10px 14px; border-radius: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); }
+        .parada-info h4 { font-size: 12px; color: #ffffff; font-weight: 700; }
+        .parada-info p { font-size: 10px; color: #9ca3af; }
+        .parada-badge { background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 4px 8px; border-radius: 8px; font-size: 10px; font-weight: 700; }
+
+        .nav-bar { height: 65px; background: rgba(9, 13, 22, 0.95); backdrop-filter: blur(16px); border-top: 1px solid rgba(255, 255, 255, 0.05); display: flex; justify-content: space-around; align-items: center; z-index: 30; padding-bottom: 6px; }
+        .nav-item { text-align: center; color: #4b5563; font-size: 10px; font-weight: 600; cursor: pointer; transition: color 0.2s; }
+        .nav-item.active { color: #38bdf8; }
+        .nav-item span { font-size: 16px; display: block; margin-bottom: 2px; }
+    </style>
+</head>
+<body>
+
+    <div class="phone-frame">
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo-icon">🚌</div>
+                <div class="logo-text">
+                    <h1>Dashbus</h1>
+                    <p>IoT Cloud Remote</p>
+                </div>
+            </div>
+            <div class="role-badge" id="lbl-rol-badge">Estudiante</div>
+        </header>
+
+        <div class="app-body">
+            <!-- PESTAÑA 1: MAPA E INICIO -->
+            <div id="tab-inicio" class="tab-content active-tab">
+                <div id="map-container">
+                    <div id="map"></div>
+                </div>
+
+                <button class="btn-capa-mapa" id="btn-toggle-mapa" onclick="alternarMapa()">
+                    🗺️ Satélite
+                </button>
+
+                <button class="btn-centrar-camion" onclick="centrarEnCamion()">
+                    📍 Ver Camión
+                </button>
+
+                <div class="floating-card">
+                    <div class="welcome-box">
+                        <div class="welcome-icon">🎓</div>
+                        <div class="welcome-text">
+                            <h3>Monitoreo En Vivo</h3>
+                            <p>Ruta Academia Juárez</p>
+                        </div>
+                    </div>
+                    <div class="metric-grid">
+                        <div class="metric-box">
+                            <span>Estado / Parada</span>
+                            <strong id="proxima-parada" style="font-size: 10px;">Esperando conexión...</strong>
+                        </div>
+                        <div class="metric-box">
+                            <span>Mi Alarma (5 Cuadras)</span>
+                            <strong id="lbl-estado-alarma" style="font-size: 10px; color: #f59e0b;">Desactivada 🔕</strong>
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <button onclick="toggleAlarma()" id="btn-alarma-ui" style="width: 100%; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; padding: 6px; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer;">🔔 Activar Alarma Automática</button>
+                    </div>
+                </div>
+
+                <!-- PANEL CHOFER / CONTROL REMOTO (OCULTO HASTA INGRESAR PIN) -->
+                <div id="driver-panel" class="driver-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-weight: 700; font-size: 11px; color: #f9fafb;">Panel Chofer</span>
+                        <span id="lbl-estado-chofer" style="font-size: 9px; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 10px; font-weight: 700;">EN ESPERA</span>
+                    </div>
+                    <button class="btn-action btn-pause" id="btn-iniciar-pausar" onclick="alternarPausa()">⏸️ Pausar Recorrido</button>
+                    <button class="btn-action btn-start" id="btn-arrancar" style="margin-top: 4px;" onclick="iniciarRecorridoChofer()">▶ Iniciar Recorrido (1 min)</button>
+                    
+                    <button class="btn-action btn-config-toggle" onclick="toggleConfig()">⚙️ Configuración Firebase (JSON)</button>
+                    <div id="config-drawer" class="config-drawer">
+                        <textarea id="firebase-json" placeholder='Pega tu JSON de Firebase aquí'></textarea>
+                        <input type="text" id="cfg-bus" value="Bus 01">
+                        <button class="btn-action" style="background: #2563eb; margin-top: 4px; padding: 6px; color: white;" onclick="guardarConfigFirebase()">Conectar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 2: PARADAS Y SELECCIÓN -->
+            <div id="tab-paradas" class="tab-content">
+                <h2 style="font-size: 14px; margin-bottom: 4px; color: #38bdf8;">🚏 Selecciona tu Parada</h2>
+                <p style="font-size: 10px; color: #9ca3af; margin-bottom: 12px;">La alarma sonará automáticamente a 5 cuadras de tu parada elegida y se apagará al llegar.</p>
+                
+                <div class="parada-item" onclick="elegirParada('Dublán', 0)" style="cursor: pointer;">
+                    <div class="parada-info">
+                        <h4>Dublán</h4>
+                        <p>Punto inicial</p>
+                    </div>
+                    <span class="parada-badge" id="badge-p0">Tu Parada 📌</span>
+                </div>
+
+                <div class="parada-item" onclick="elegirParada('Plaza Benito', 1)" style="cursor: pointer;">
+                    <div class="parada-info">
+                        <h4>Plaza Benito</h4>
+                        <p>Zona comercial</p>
+                    </div>
+                    <span class="parada-badge" id="badge-p1">Elegir</span>
+                </div>
+
+                <div class="parada-item" onclick="elegirParada('5 de Febrero', 2)" style="cursor: pointer;">
+                    <div class="parada-info">
+                        <h4>5 de Febrero</h4>
+                        <p>Punto intermedio</p>
+                    </div>
+                    <span class="parada-badge" id="badge-p2">Elegir</span>
+                </div>
+
+                <div class="parada-item" onclick="elegirParada('18 de Marzo', 3)" style="cursor: pointer;">
+                    <div class="parada-info">
+                        <h4>18 de Marzo</h4>
+                        <p>Destino final</p>
+                    </div>
+                    <span class="parada-badge" id="badge-p3">Elegir</span>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 3: AVISOS -->
+            <div id="tab-avisos" class="tab-content">
+                <h2 style="font-size: 14px; margin-bottom: 10px; color: #38bdf8;">📢 Avisos del Chofer</h2>
+                <div id="driver-aviso-box" style="display: none; background: #1e293b; padding: 10px; border-radius: 10px; margin-bottom: 12px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                    <h3 style="font-size: 11px; margin-bottom: 4px; color: #f59e0b;">Publicar Nuevo Aviso (Chofer)</h3>
+                    <input type="text" id="input-titulo-aviso" placeholder="Título (ej. Salida retrasada)">
+                    <textarea id="input-texto-aviso" placeholder="Escribe el mensaje para los alumnos..." style="height: 60px; margin-top: 4px;"></textarea>
+                    <button class="btn-action" style="background: #f59e0b; color: #030712; font-weight: 800; padding: 8px;" onclick="publicarAviso()">Enviar Aviso a la Nube</button>
+                </div>
+                <div id="lista-avisos">
+                    <div class="aviso-card">
+                        <h4>Sin avisos recientes</h4>
+                        <p>El chofer no ha publicado alertas hoy.</p>
+                        <span>Al día</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 4: AJUSTES -->
+            <div id="tab-ajustes" class="tab-content">
+                <h2 style="font-size: 14px; margin-bottom: 10px; color: #38bdf8;">⚙️ Configuración y Control</h2>
+                <div style="background: #1e293b; padding: 12px; border-radius: 10px; font-size: 11px; margin-bottom: 12px;">
+                    <p style="margin-bottom: 6px;"><strong>Rol actual:</strong> <span id="lbl-rol-actual">Estudiante</span></p>
+                </div>
+                <div id="bloque-login-chofer">
+                    <h3 style="font-size: 12px; color: #f59e0b; margin-bottom: 6px;">🔒 Activar Modo Chofer</h3>
+                    <input type="password" id="input-pin-chofer" maxlength="4" placeholder="••••" style="text-align: center; letter-spacing: 4px; font-size: 16px; margin-bottom: 8px;">
+                    <button class="btn-action" style="background: #2563eb; color: white;" onclick="verificarPinChofer()">Activar Panel Chofer</button>
+                </div>
+                <div id="bloque-logout-chofer" style="display: none; margin-top: 10px;">
+                    <button class="btn-action" style="background: #ef4444; color: white;" onclick="cerrarSesionChofer()">Cerrar Sesión de Chofer</button>
+                </div>
+            </div>
+        </div>
+
+        <nav class="nav-bar">
+            <div class="nav-item active" onclick="cambiarTab(this, 'tab-inicio')"><span>🏠</span>Mapa</div>
+            <div class="nav-item" onclick="cambiarTab(this, 'tab-paradas')"><span>🚏</span>Paradas</div>
+            <div class="nav-item" onclick="cambiarTab(this, 'tab-avisos')"><span>📢</span>Avisos</div>
+            <div class="nav-item" onclick="cambiarTab(this, 'tab-ajustes')"><span>⚙️</span>Ajustes</div>
+        </nav>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script>
+        let dbRef = null;
+        let marker = null;
+        let lastPos = null;
+        let estaPausado = false;
+        let ultimaPosicionCamion = null;
+        let miParadaElegida = { nombre: "Dublán", coords: [30.4556966, -107.915599] };
+        let alarmaActiva = false;
+        let alarmaSonando = false;
+        let recorridoIniciado = false;
+
+        // GENERADOR DE SONIDO DE CAMPANA/ALARMA AUTOMÁTICA
+        function reproducirSonidoCampana() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // Tono de campana (Nota A5)
+                osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.8);
+
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.8);
+            } catch(e) {}
+        }
+
+        const firebaseConfigDefault = {
+            databaseURL: "https://dashbus-escolar-default-rtdb.firebaseio.com"
+        };
+
+        try {
+            firebase.initializeApp(firebaseConfigDefault);
+            dbRef = firebase.database().ref('buses/Bus 01');
+            iniciarEscuchasFirebase();
+        } catch(e) {}
+
+        function guardarConfigFirebase() {
+            const rawJson = document.getElementById('firebase-json').value;
+            const busName = document.getElementById('cfg-bus').value;
+            try {
+                const config = JSON.parse(rawJson);
+                if (firebase.apps.length) firebase.app().delete();
+                firebase.initializeApp(config);
+                dbRef = firebase.database().ref('buses/' + busName);
+                iniciarEscuchasFirebase();
+                alert("¡Conectado a tu Firebase personalizado con éxito!");
+                toggleConfig();
+            } catch(e) {
+                alert("Error en el formato JSON. Revisa que sea válido.");
+            }
+        }
+
+        function toggleConfig() {
+            const drawer = document.getElementById('config-drawer');
+            drawer.style.display = drawer.style.display === 'block' ? 'none' : 'block';
+        }
+
+        const map = L.map('map', { zoomControl: false }).setView([30.41, -107.95], 11);
+        
+        // CAPAS DE MAPA
+        const calleLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+        const sateliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+        
+        calleLayer.addTo(map);
+        
+        let esSatelite = false;
+        function alternarMapa() {
+            esSatelite = !esSatelite;
+            if (esSatelite) {
+                map.removeLayer(calleLayer);
+                sateliteLayer.addTo(map);
+                document.getElementById('btn-toggle-mapa').innerText = "🗺️ Calles";
+            } else {
+                map.removeLayer(sateliteLayer);
+                calleLayer.addTo(map);
+                document.getElementById('btn-toggle-mapa').innerText = "🗺️ Satélite";
+            }
+        }
+
+        const geojsonData = {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {},
+              "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                  [ -107.9161761, 30.4606883 ], [ -107.9159366, 30.4602851 ], [ -107.915697, 30.4595476 ],
+                  [ -107.9156592, 30.458723 ], [ -107.9156355, 30.4571881 ], [ -107.9156097, 30.4560944 ],
+                  [ -107.915599, 30.4556966 ], [ -107.9155925, 30.4551803 ], [ -107.9155615, 30.4546996 ],
+                  [ -107.9155228, 30.454289 ], [ -107.915546, 30.4541588 ], [ -107.9155576, 30.453538 ],
+                  [ -107.9155499, 30.4528503 ], [ -107.9155267, 30.4520459 ], [ -107.9155034, 30.4517988 ],
+                  [ -107.9154995, 30.4512981 ], [ -107.9154724, 30.4506205 ], [ -107.9154647, 30.449826 ],
+                  [ -107.9154531, 30.4492518 ], [ -107.9154453, 30.4486743 ], [ -107.915426, 30.4482036 ],
+                  [ -107.9154027, 30.4477062 ], [ -107.915395, 30.4471421 ], [ -107.9154066, 30.4465378 ],
+                  [ -107.9153795, 30.4460905 ], [ -107.9153718, 30.4455697 ], [ -107.9153098, 30.4445382 ],
+                  [ -107.9152905, 30.4438772 ], [ -107.9153021, 30.4432729 ], [ -107.9152827, 30.4425385 ],
+                  [ -107.9152517, 30.4418007 ], [ -107.9152014, 30.4408592 ], [ -107.9151975, 30.440028 ],
+                  [ -107.9151936, 30.4393436 ], [ -107.9151627, 30.4380482 ], [ -107.9151627, 30.4377945 ],
+                  [ -107.9151317, 30.4371768 ], [ -107.9151085, 30.4365825 ], [ -107.9151085, 30.435838 ],
+                  [ -107.9150852, 30.4349933 ], [ -107.9150542, 30.4343557 ], [ -107.9150465, 30.4338215 ],
+                  [ -107.9150388, 30.4331971 ], [ -107.9149923, 30.4323791 ], [ -107.9149845, 30.4318316 ],
+                  [ -107.9149652, 30.4309334 ], [ -107.9149342, 30.4304593 ], [ -107.9149187, 30.4293842 ],
+                  [ -107.9148669, 30.4277367 ], [ -107.9148495, 30.4267223 ], [ -107.9148228, 30.4257058 ],
+                  [ -107.9147596, 30.4242636 ], [ -107.9147638, 30.4235308 ], [ -107.9147298, 30.4229849 ],
+                  [ -107.9147213, 30.42245 ], [ -107.914711, 30.4214849 ], [ -107.9146855, 30.4205321 ],
+                  [ -107.914627, 30.4192527 ], [ -107.9145598, 30.4178116 ], [ -107.9145627, 30.4168809 ],
+                  [ -107.9145394, 30.415719 ], [ -107.9145114, 30.4143562 ], [ -107.9144741, 30.4133993 ],
+                  [ -107.9144415, 30.4121731 ], [ -107.9143794, 30.4110232 ], [ -107.9143514, 30.4098211 ],
+                  [ -107.9143048, 30.4079476 ], [ -107.9142768, 30.4067575 ], [ -107.9142396, 30.4052015 ],
+                  [ -107.914165, 30.4032997 ], [ -107.9141277, 30.4016633 ], [ -107.9141184, 30.4007868 ],
+                  [ -107.914095, 30.3994156 ], [ -107.9141044, 30.3992307 ], [ -107.9141137, 30.3989452 ],
+                  [ -107.914151, 30.398716 ], [ -107.9142629, 30.398338 ], [ -107.9145705, 30.3974293 ],
+                  [ -107.9148789, 30.3965154 ], [ -107.9154315, 30.3947699 ], [ -107.9160152, 30.3928834 ],
+                  [ -107.9163811, 30.3917958 ], [ -107.91649, 30.3914131 ], [ -107.9167469, 30.3906074 ],
+                  [ -107.917175, 30.3891841 ], [ -107.9177587, 30.3874988 ], [ -107.918179, 30.386203 ],
+                  [ -107.9187783, 30.384229 ], [ -107.9195956, 30.3817246 ], [ -107.9203816, 30.3793678 ],
+                  [ -107.9206229, 30.3786493 ], [ -107.9207475, 30.3783337 ], [ -107.9209187, 30.3780383 ],
+                  [ -107.9211133, 30.3777697 ], [ -107.9213546, 30.3775481 ], [ -107.9218838, 30.3771788 ],
+                  [ -107.9224442, 30.3769371 ], [ -107.9228723, 30.3768296 ], [ -107.9238297, 30.3766953 ],
+                  [ -107.9277213, 30.3761447 ], [ -107.9305467, 30.3757552 ], [ -107.934555, 30.3751979 ],
+                  [ -107.93538, 30.3750837 ], [ -107.9356291, 30.3750636 ], [ -107.9359015, 30.3750636 ],
+                  [ -107.9361973, 30.3750905 ], [ -107.9369289, 30.3752315 ], [ -107.939092, 30.3758261 ],
+                  [ -107.9400945, 30.3761144 ], [ -107.940587, 30.3762661 ], [ -107.9411322, 30.3765696 ],
+                  [ -107.9414562, 30.3767392 ], [ -107.9416924, 30.376814 ], [ -107.9418748, 30.3768965 ],
+                  [ -107.9420571, 30.3769275 ], [ -107.9422037, 30.3769094 ], [ -107.9423083, 30.3767882 ],
+                  [ -107.942389, 30.3767031 ], [ -107.9424937, 30.3766541 ], [ -107.9430438, 30.3767779 ],
+                  [ -107.9436538, 30.3769223 ], [ -107.9438929, 30.3769533 ], [ -107.9441022, 30.3769584 ],
+                  [ -107.9443922, 30.3769275 ], [ -107.9451637, 30.3767314 ], [ -107.9472177, 30.3761614 ],
+                  [ -107.9475388, 30.3760831 ], [ -107.9480645, 30.3759514 ], [ -107.9483697, 30.3759075 ],
+                  [ -107.9487428, 30.3759368 ], [ -107.9500316, 30.3755711 ], [ -107.9535419, 30.3746932 ],
+                  [ -107.9544237, 30.3743421 ], [ -107.9573914, 30.3730107 ], [ -107.9632928, 30.3703918 ],
+                  [ -107.971687, 30.3667048 ], [ -107.9749938, 30.365227 ], [ -107.9753329, 30.365066 ],
+                  [ -107.9756382, 30.364949 ], [ -107.9759265, 30.3647295 ], [ -107.9764691, 30.3642759 ],
+                  [ -107.9766726, 30.3639979 ], [ -107.9770627, 30.3637638 ], [ -107.9775375, 30.3633834 ],
+                  [ -107.9781819, 30.3631931 ], [ -107.9799625, 30.3629883 ], [ -107.9812852, 30.3629298 ],
+                  [ -107.9819635, 30.3630615 ], [ -107.9825401, 30.3632517 ], [ -107.9838798, 30.3639247 ],
+                  [ -107.9844733, 30.3642174 ], [ -107.9848803, 30.3642027 ], [ -107.9921723, 30.3646124 ],
+                  [ -107.9970901, 30.3648904 ], [ -107.9976327, 30.3648465 ], [ -107.9978532, 30.3647588 ],
+                  [ -107.9981245, 30.3645978 ], [ -107.998345, 30.364393 ], [ -107.9987689, 30.3640418 ],
+                  [ -107.999532, 30.363398 ], [ -107.9999899, 30.3632809 ], [ -108.0001764, 30.3632517 ],
+                  [ -108.0005834, 30.3632956 ], [ -108.0010243, 30.3635004 ], [ -108.0024488, 30.3642905 ],
+                  [ -108.0039072, 30.3650368 ], [ -108.0047721, 30.3654025 ], [ -108.005179, 30.3654172 ],
+                  [ -108.0056539, 30.3653294 ], [ -108.0061456, 30.3651538 ], [ -108.0066544, 30.3647149 ],
+                  [ -108.0068748, 30.3642613 ], [ -108.0090794, 30.3594034 ], [ -108.0106056, 30.3557013 ],
+                  [ -108.0113856, 30.3545014 ], [ -108.0118944, 30.3539014 ], [ -108.012844, 30.3528624 ],
+                  [ -108.0149807, 30.3510771 ], [ -108.0173039, 30.3493649 ], [ -108.022103, 30.3457063 ],
+                  [ -108.0270886, 30.3419452 ], [ -108.0321082, 30.3381692 ], [ -108.0335358, 30.337101 ],
+                  [ -108.0338457, 30.3369405 ], [ -108.034879, 30.33612 ], [ -108.035933, 30.3354066 ],
+                  [ -108.0374829, 30.3340688 ], [ -108.0388055, 30.3329273 ], [ -108.0400661, 30.3318749 ],
+                  [ -108.041802, 30.3308047 ], [ -108.0447778, 30.3288962 ], [ -108.0488696, 30.3263275 ],
+                  [ -108.0504609, 30.3253465 ], [ -108.0521761, 30.324187 ], [ -108.052937, 30.3236998 ],
+                  [ -108.0532601, 30.3233924 ], [ -108.0537678, 30.3228801 ], [ -108.0539525, 30.3225955 ],
+                  [ -108.0540712, 30.322254 ], [ -108.0541701, 30.3219979 ], [ -108.0542888, 30.3216222 ],
+                  [ -108.0543415, 30.321201 ], [ -108.0543218, 30.3207114 ], [ -108.0542426, 30.3200568 ],
+                  [ -108.0541173, 30.3196242 ], [ -108.054058, 30.3194819 ], [ -108.0540514, 30.3192713 ],
+                  [ -108.054025, 30.3190152 ], [ -108.0540778, 30.3187192 ], [ -108.0542162, 30.3182638 ],
+                  [ -108.0545262, 30.3177913 ], [ -108.0553834, 30.3170741 ], [ -108.0564121, 30.3163398 ],
+                  [ -108.0569791, 30.31593 ], [ -108.0574671, 30.3155315 ], [ -108.0578495, 30.3152867 ],
+                  [ -108.058265, 30.3151216 ], [ -108.0589574, 30.3149395 ], [ -108.0604147, 30.3146321 ],
+                  [ -108.0617005, 30.3143247 ], [ -108.06296, 30.3139319 ], [ -108.0640282, 30.3135733 ],
+                  [ -108.0650042, 30.3132716 ], [ -108.0655845, 30.3130268 ], [ -108.0658482, 30.3128902 ],
+                  [ -108.0660724, 30.3127308 ], [ -108.0661977, 30.3125714 ], [ -108.066778, 30.3116264 ],
+                  [ -108.0670681, 30.3112848 ], [ -108.0677737, 30.3108067 ], [ -108.0686705, 30.3104139 ],
+                  [ -108.0692904, 30.3101121 ], [ -108.0698377, 30.3098161 ], [ -108.0700355, 30.3095542 ],
+                  [ -108.0701674, 30.3092924 ], [ -108.0702597, 30.3088768 ], [ -108.0703191, 30.3084271 ],
+                  [ -108.0705235, 30.3080286 ], [ -108.0708664, 30.3077496 ], [ -108.0716906, 30.307465 ],
+                  [ -108.0725281, 30.3071006 ], [ -108.0740711, 30.3062068 ], [ -108.0752976, 30.3054895 ],
+                  [ -108.0762934, 30.3048633 ], [ -108.0764042, 30.3048663 ], [ -108.0768819, 30.3050995 ],
+                  [ -108.0772311, 30.3052725 ], [ -108.0773685, 30.3053565 ], [ -108.0779867, 30.3060879 ],
+                  [ -108.0786335, 30.3069577 ], [ -108.0787137, 30.3070417 ], [ -108.0794178, 30.3066464 ],
+                  [ -108.0803966, 30.3060731 ], [ -108.0809232, 30.3058161 ], [ -108.0810091, 30.3057865 ],
+                  [ -108.0818105, 30.3059495 ], [ -108.0818907, 30.3059693 ], [ -108.082194, 30.3063597 ],
+                  [ -108.0824459, 30.3067304 ], [ -108.0827248, 30.3070838 ], [ -108.0827454, 30.3071417 ],
+                  [ -108.0827866, 30.3071862 ], [ -108.0825135, 30.3073463 ], [ -108.0821681, 30.3075154 ],
+                  [ -108.0821888, 30.3075243 ], [ -108.0824825, 30.3076712 ]
+                ]
+              }
+            },
+            { "type": "Feature", "properties": {}, "geometry": { "type": "Point", "coordinates": [ -107.9488437, 30.3759215 ] } },
+            { "type": "Feature", "properties": {}, "geometry": { "type": "Point", "coordinates": [ -107.914342, 30.3981667 ] } },
+            { "type": "Feature", "properties": {}, "geometry": { "type": "Point", "coordinates": [ -107.9145804, 30.4165148 ] } },
+            { "type": "Feature", "properties": {}, "geometry": { "type": "Point", "coordinates": [ -107.9154146, 30.4449687 ] } }
+          ]
+        };
+
+        const paradasOficiales = [
+            { nombre: "Dublán", coords: [30.4556966, -107.915599] },
+            { nombre: "Plaza Benito", coords: [30.3981667, -107.914342] },
+            { nombre: "5 de Febrero", coords: [30.365066, -107.9753329] },
+            { nombre: "18 de Marzo", coords: [30.3076712, -108.0824825] }
+        ];
+
+        const rutaCoordenadas = geojsonData.features[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+        L.polyline(rutaCoordenadas, { color: '#38bdf8', weight: 6 }).addTo(map);
+
+        paradasOficiales.forEach(p => {
+            L.circleMarker(p.coords, { radius: 6, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 1 }).addTo(map).bindPopup(p.nombre);
+        });
+
+        function actualizarUbicacionCamion(lat, lng) {
+            const newPos = [lat, lng];
+            ultimaPosicionCamion = newPos;
+            
+            let masCercana = "En ruta fluida";
+            paradasOficiales.forEach(p => {
+                if (Math.hypot(p.coords[0] - lat, p.coords[1] - lng) < 0.003) {
+                    masCercana = `🚏 En Parada: ${p.nombre} (6s)`;
+                }
+            });
+            document.getElementById('proxima-parada').innerText = masCercana;
+
+            if (alarmaActiva) {
+                let distanciaAParada = Math.hypot(miParadaElegida.coords[0] - lat, miParadaElegida.coords[1] - lng);
+
+                if (distanciaAParada <= 0.0050 && distanciaAParada > 0.0015 && !alarmaSonando) {
+                    alarmaSonando = true;
+                    document.getElementById('lbl-estado-alarma').innerText = "🚨 ¡SONANDO!";
+                    document.getElementById('lbl-estado-alarma').style.color = "#ef4444";
+                    
+                    // REPRODUCE EL SONIDO DE LA CAMPANA
+                    reproducirSonidoCampana();
+                    
+                    alert(`🚨 ¡ALERTA DASHBUS! El autobús está a 5 cuadras de tu parada (${miParadaElegida.nombre}). ¡Prepárate!`);
+                }
+
+                if (distanciaAParada <= 0.0015 && alarmaSonando) {
+                    alarmaSonando = false;
+                    alarmaActiva = false;
+                    document.getElementById('lbl-estado-alarma').innerText = "Llegó a tu parada ✅";
+                    document.getElementById('lbl-estado-alarma').style.color = "#34d399";
+                    document.getElementById('btn-alarma-ui').style.background = "rgba(245, 158, 11, 0.2)";
+                    document.getElementById('btn-alarma-ui').style.color = "#fbbf24";
+                    document.getElementById('btn-alarma-ui').innerText = "🔔 Activar Alarma Automática";
+                    alert(`✅ El autobús ha llegado a ${miParadaElegida.nombre}. La alarma se ha detenido automáticamente.`);
+                }
+            }
+
+            if (!marker) {
+                marker = L.marker(newPos).addTo(map);
+                map.setView(newPos, 12);
+                lastPos = newPos;
+            } else {
+                animateMarker(marker, lastPos, newPos, 600);
+                lastPos = newPos;
+            }
+        }
+
+        function iniciarEscuchasFirebase() {
+            if (!dbRef) return;
+            
+            dbRef.child('avisos').on('value', (snapshot) => {
+                const data = snapshot.val();
+                const listaAvisos = document.getElementById('lista-avisos');
+                if (data) {
+                    listaAvisos.innerHTML = '';
+                    Object.values(data).reverse().forEach(aviso => {
+                        listaAvisos.innerHTML += `
+                            <div class="aviso-card">
+                                <h4>${aviso.titulo}</h4>
+                                <p>${aviso.texto}</p>
+                                <span>${aviso.hora}</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    listaAvisos.innerHTML = `
+                        <div class="aviso-card">
+                            <h4>Sin avisos recientes</h4>
+                            <p>El chofer no ha publicado alertas hoy.</p>
+                            <span>Al día</span>
+                        </div>
+                    `;
+                }
+            });
+
+            dbRef.child('control/pausado').on('value', (snapshot) => {
+                estaPausado = snapshot.val() || false;
+                const btn = document.getElementById('btn-iniciar-pausar');
+                const lblEstado = document.getElementById('lbl-estado-chofer');
+                if (estaPausado) {
+                    if(btn) { btn.innerText = "▶ Reanudar Recorrido"; btn.className = "btn-action btn-start"; }
+                    if(lblEstado) { lblEstado.innerText = "EN PAUSA"; lblEstado.style.color = "#f59e0b"; }
+                } else {
+                    if(btn) { btn.innerText = "⏸️ Pausar Recorrido"; btn.className = "btn-action btn-pause"; }
+                    if(lblEstado) { lblEstado.innerText = "EN MARCHA"; lblEstado.style.color = "#10b981"; }
+                }
+            });
+        }
+
+        function centrarEnCamion() {
+            if (ultimaPosicionCamion) {
+                map.setView(ultimaPosicionCamion, 14, { animate: true });
+            } else {
+                alert("Inicia el recorrido para ver la ubicación del camión.");
+            }
+        }
+
+        function elegirParada(nombre, index) {
+            const paradaEncontrada = paradasOficiales.find(p => p.nombre === nombre);
+            if (paradaEncontrada) {
+                miParadaElegida = paradaEncontrada;
+                document.querySelectorAll('.parada-badge').forEach((b, i) => {
+                    b.innerText = i === index ? "Tu Parada 📌" : "Elegir";
+                });
+                alert(`¡Parada guardada! Tu alarma sonará a 5 cuadras de ${nombre} y se apagará al llegar.`);
+                cambiarTab(document.querySelector('.nav-bar div:nth-child(1)'), 'tab-inicio');
+            }
+        }
+
+        function toggleAlarma() {
+            alarmaActiva = !alarmaActiva;
+            alarmaSonando = false;
+            const btn = document.getElementById('btn-alarma-ui');
+            const lbl = document.getElementById('lbl-estado-alarma');
+
+            if (alarmaActiva) {
+                btn.style.background = "rgba(16, 185, 129, 0.2)";
+                btn.style.borderColor = "rgba(16, 185, 129, 0.4)";
+                btn.style.color = "#34d399";
+                btn.innerText = "🔕 Desactivar Alarma";
+                lbl.innerText = `Armada (${miParadaElegida.nombre})`;
+                lbl.style.color = "#10b981";
+                alert(`¡Alarma armada! Sonará exactamente a 5 cuadras antes de llegar a ${miParadaElegida.nombre}.`);
+            } else {
+                btn.style.background = "rgba(245, 158, 11, 0.2)";
+                btn.style.borderColor = "rgba(245, 158, 11, 0.4)";
+                btn.style.color = "#fbbf24";
+                btn.innerText = "🔔 Activar Alarma Automática";
+                lbl.innerText = "Desactivada 🔕";
+                lbl.style.color = "#f59e0b";
+                alert("Alarma desactivada.");
+            }
+        }
+
+        function verificarPinChofer() {
+            if (document.getElementById('input-pin-chofer').value === "1234") {
+                document.getElementById('driver-panel').style.display = 'block';
+                document.getElementById('driver-aviso-box').style.display = 'block';
+                document.getElementById('bloque-login-chofer').style.display = 'none';
+                document.getElementById('bloque-logout-chofer').style.display = 'block';
+                document.getElementById('lbl-rol-actual').innerText = "Chofer (Panel Activo)";
+                document.getElementById('lbl-rol-badge').innerText = "Chofer";
+                alert("¡Modo Chofer Activado!");
+                cambiarTab(document.querySelector('.nav-bar div:nth-child(1)'), 'tab-inicio');
+            } else {
+                alert("PIN incorrecto.");
+            }
+        }
+
+        function cerrarSesionChofer() {
+            document.getElementById('driver-panel').style.display = 'none';
+            document.getElementById('driver-aviso-box').style.display = 'none';
+            document.getElementById('bloque-login-chofer').style.display = 'block';
+            document.getElementById('bloque-logout-chofer').style.display = 'none';
+            document.getElementById('lbl-rol-actual').innerText = "Estudiante";
+            document.getElementById('lbl-rol-badge').innerText = "Estudiante";
+            document.getElementById('input-pin-chofer').value = '';
+            alert("Has vuelto al modo Estudiante.");
+        }
+
+        function alternarPausa() {
+            estaPausado = !estaPausado;
+            if (dbRef) {
+                dbRef.child('control/pausado').set(estaPausado);
+            }
+        }
+
+        function publicarAviso() {
+            const titulo = document.getElementById('input-titulo-aviso').value;
+            const texto = document.getElementById('input-texto-aviso').value;
+            if (!titulo || !texto) {
+                alert("Escribe un título y un texto para el aviso.");
+                return;
+            }
+            const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (dbRef) {
+                dbRef.child('avisos').push({ titulo, texto, hora: horaActual });
+                alert("¡Aviso publicado con éxito y enviado a la nube!");
+            } else {
+                alert("Error de conexión a Firebase.");
+            }
+            document.getElementById('input-titulo-aviso').value = '';
+            document.getElementById('input-texto-aviso').value = '';
+        }
+
+        async function iniciarRecorridoChofer() {
+            if (recorridoIniciado) {
+                alert("El recorrido ya está en marcha.");
+                return;
+            }
+            recorridoIniciado = true;
+            document.getElementById('btn-arrancar').style.display = 'none';
+            alert("¡Recorrido iniciado! Duración estimada: 1 minuto exacto.");
+            
+            const tiempoTotalMs = 60000;
+            const numPuntos = rutaCoordenadas.length;
+            const tiempoPorPunto = Math.floor(tiempoTotalMs / numPuntos);
+
+            let index = 0;
+            while(index < rutaCoordenadas.length) {
+                while(estaPausado) {
+                    await new Promise(r => setTimeout(r, 200));
+                }
+
+                const pt = rutaCoordenadas[index];
+                actualizarUbicacionCamion(pt[0], pt[1]);
+
+                if (dbRef) {
+                    try {
+                        dbRef.child('ubicacion').set({ lat: pt[0], lng: pt[1] });
+                    } catch(e) {}
+                }
+
+                let esParada = false;
+                paradasOficiales.forEach(p => {
+                    if(Math.hypot(p.coords[0] - pt[0], p.coords[1] - pt[1]) < 0.003) esParada = true;
+                });
+
+                index++;
+                await new Promise(r => setTimeout(r, esParada ? 6000 : tiempoPorPunto));
+            }
+
+            document.getElementById('proxima-parada').innerText = "Destino Final Alcanzado ✅";
+            document.getElementById('lbl-estado-chofer').innerText = "FINALIZADO";
+            document.getElementById('lbl-estado-chofer').style.color = "#38bdf8";
+            alert("¡El autobús ha llegado a su destino final!");
+        }
+
+        function cambiarTab(el, tabId) {
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            el.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active-tab'));
+            document.getElementById(tabId).classList.add('active-tab');
+            
+            if(tabId === 'tab-inicio') {
+                setTimeout(() => { map.invalidateSize(); }, 200);
+            }
+        }
+
+        function animateMarker(marker, start, end, duration) {
+            const startTime = performance.now();
+            function frame(currentTime) {
+                const progress = Math.min((currentTime - startTime) / duration, 1);
+                marker.setLatLng([
+                    start[0] + (end[0] - start[0]) * progress,
+                    start[1] + (end[1] - start[1]) * progress
+                ]);
+                if (progress < 1) requestAnimationFrame(frame);
+            }
+            requestAnimationFrame(frame);
+        }
+    </script>
+</body>
+</html>
